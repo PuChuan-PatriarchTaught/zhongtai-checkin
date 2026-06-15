@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>掃碼報到｜中台禪寺報到系統</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/zxing-js/0.21.1/zxing.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans TC', sans-serif; background: #f0f4f8; min-height: 100vh; padding: 16px; }
+    .header { background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white; padding: 16px 20px; border-radius: 12px; margin-bottom: 16px; text-align: center; }
+    .header h1 { font-size: 1.3em; margin-bottom: 4px; }
+    .header p { font-size: 0.82em; opacity: 0.85; }
+    .card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h2 { font-size: 0.95em; color: #2e7d32; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #e8f5e9; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.83em; color: #555; margin-bottom: 4px; font-weight: 500; }
+    input, select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95em; font-family: inherit; transition: border-color 0.2s; }
+    input:focus, select:focus { outline: none; border-color: #2e7d32; box-shadow: 0 0 0 3px rgba(46,125,50,0.15); }
+    #scanInput { font-size: 1.1em; padding: 14px; text-align: center; letter-spacing: 2px; border: 2px solid #2e7d32; }
+    .btn { display: block; width: 100%; padding: 13px; border: none; border-radius: 8px; font-size: 1em; font-family: inherit; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+    .btn:last-child { margin-bottom: 0; }
+    .btn-primary { background: #2e7d32; color: white; }
+    .btn-primary:hover { background: #1b5e20; }
+    .btn-secondary { background: #78909c; color: white; }
+    .btn-camera { background: #1565c0; color: white; }
+    .btn-camera:hover { background: #0d47a1; }
+    .btn-camera.active { background: #c62828; }
+    .scan-mode { display: flex; gap: 8px; margin-bottom: 12px; }
+    .mode-btn { flex: 1; padding: 10px; border: 2px solid #2e7d32; border-radius: 8px; background: white; color: #2e7d32; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 0.88em; text-align: center; transition: all 0.2s; }
+    .mode-btn.active { background: #2e7d32; color: white; }
+    .camera-container { display: none; position: relative; width: 100%; border-radius: 10px; overflow: hidden; background: #000; margin-bottom: 12px; }
+    .camera-container.show { display: block; }
+    #cameraVideo { width: 100%; max-height: 260px; object-fit: cover; display: block; }
+    .scan-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 190px; height: 190px; border: 3px solid #4caf50; border-radius: 12px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.4); }
+    .scan-line { position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(to right, transparent, #4caf50, transparent); animation: scanMove 2s linear infinite; }
+    @keyframes scanMove { 0% { top: 10%; } 100% { top: 90%; } }
+    .camera-hint { text-align: center; font-size: 0.82em; color: #666; margin-bottom: 10px; }
+    .camera-status { text-align: center; font-size: 0.85em; color: #555; padding: 8px; background: #f5f5f5; border-radius: 6px; margin-bottom: 10px; min-height: 36px; }
+    .result-box { border-radius: 12px; padding: 20px; text-align: center; margin-top: 14px; display: none; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    .result-success { background: #e8f5e9; border: 2px solid #4caf50; }
+    .result-error { background: #ffebee; border: 2px solid #ef5350; }
+    .result-warning { background: #fff8e1; border: 2px solid #ffc107; }
+    .result-icon { font-size: 2.5em; margin-bottom: 8px; }
+    .result-name { font-size: 1.4em; font-weight: 700; color: #1b5e20; margin-bottom: 4px; }
+    .result-dharma { font-size: 1em; color: #388e3c; margin-bottom: 8px; }
+    .result-time { font-size: 0.85em; color: #666; }
+    .result-msg { font-size: 0.95em; color: #c62828; font-weight: 500; }
+    .result-warn-name { font-size: 1.1em; font-weight: 600; color: #e65100; margin-bottom: 4px; }
+    .stats-wrap { position: relative; margin-bottom: 14px; }
+    .stats-bar { background: #e8f5e9; border-radius: 10px; padding: 18px 14px; display: flex; justify-content: center; align-items: center; gap: 40px; }
+    .stat { text-align: center; }
+    .stat-num { font-size: 2.4em; font-weight: 700; color: #2e7d32; line-height: 1; }
+    .stat-label { color: #555; font-size: 0.9em; margin-top: 6px; }
+    .stat-divider { width: 1px; height: 52px; background: #a5d6a7; }
+    .change-btn { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: inline-block; padding: 6px 12px; border: none; border-radius: 6px; font-size: 0.78em; font-family: inherit; font-weight: 600; cursor: pointer; background: #78909c; color: white; }
+    .setup-card { background: #fff8e1; border: 1px solid #ffe082; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+    .setup-card h2 { color: #f57c00; font-size: 0.95em; margin-bottom: 14px; }
+    .temp-section { background: #fff3e0; border: 2px solid #ff9800; border-radius: 10px; padding: 16px; margin-top: 12px; display: none; }
+    .temp-section h3 { color: #e65100; font-size: 0.95em; margin-bottom: 12px; }
+    .temp-tag { display: inline-block; background: #ff9800; color: white; font-size: 0.72em; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-right: 6px; }
+    .search-result { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px; padding: 14px; margin-top: 10px; font-size: 0.88em; display: none; }
+    .search-result table { width: 100%; border-collapse: collapse; }
+    .search-result td { padding: 4px 0; color: #333; }
+    .search-result td:first-child { color: #666; width: 80px; }
+    .section-hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📱 掃碼報到</h1>
+  <p id="headerSubtitle">中台禪寺</p>
+</div>
+
+<!-- 設定區 -->
+<div class="setup-card" id="setupCard">
+  <h2>⚙️ 請先完成設定</h2>
+  <div class="form-group">
+    <label>選擇法會 *</label>
+    <select id="eventSelect"><option value="">-- 載入中 --</option></select>
+  </div>
+  <div class="form-group">
+    <label>操作者姓名 *</label>
+    <input type="text" id="operatorName" placeholder="請輸入您的姓名">
+  </div>
+  <button class="btn btn-primary" onclick="startCheckin()">✅ 開始報到</button>
+</div>
+
+<!-- 報到主區塊 -->
+<div id="checkinSection" class="section-hidden">
+
+  <!-- 統計列 -->
+  <div class="stats-wrap">
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-num" id="statChecked">0</div>
+        <div class="stat-label">已報到</div>
+      </div>
+    </div>
+    <button class="change-btn" onclick="resetSetup()">✏️ 更換法會</button>
+  </div>
+
+  <!-- 掃碼區 -->
+  <div class="card">
+    <h2>📷 掃碼報到</h2>
+    <div class="scan-mode">
+      <button class="mode-btn active" id="modeScanner" onclick="switchMode('scanner')">🔫 掃碼器</button>
+      <button class="mode-btn" id="modeCamera" onclick="switchMode('camera')">📷 手機鏡頭</button>
+    </div>
+
+    <!-- 掃碼器模式 -->
+    <div id="scannerMode">
+      <div class="form-group">
+        <label>掃描或手動輸入學員編號</label>
+        <input type="text" id="scanInput"
+               placeholder="請掃描 QR Code 或輸入編號"
+               autocomplete="off" autocorrect="off" spellcheck="false"
+               oninput="onScanInput()">
+      </div>
+    </div>
+
+    <!-- 鏡頭模式 -->
+    <div id="cameraMode" class="section-hidden">
+      <div class="camera-hint">將 QR Code 對準下方框框</div>
+      <div class="camera-container" id="cameraContainer">
+        <video id="cameraVideo" playsinline autoplay muted></video>
+        <div class="scan-overlay"><div class="scan-line"></div></div>
+      </div>
+      <div class="camera-status" id="cameraStatus">請點選下方按鈕開啟鏡頭</div>
+      <button class="btn btn-camera" id="cameraBtn" onclick="toggleCamera()">📷 開啟鏡頭</button>
+    </div>
+
+    <!-- 報到結果 -->
+    <div class="result-box result-success" id="resultSuccess">
+      <div class="result-icon">✅</div>
+      <div class="result-name" id="resName"></div>
+      <div class="result-dharma" id="resDharma"></div>
+      <div class="result-time" id="resTime"></div>
+    </div>
+    <div class="result-box result-warning" id="resultWarning">
+      <div class="result-icon">⚠️</div>
+      <div class="result-warn-name" id="resWarnName"></div>
+      <div class="result-msg" id="resWarnMsg"></div>
+      <div class="result-time" id="resWarnTime"></div>
+    </div>
+    <div class="result-box result-error" id="resultError">
+      <div class="result-icon">❌</div>
+      <div class="result-msg" id="resErrMsg"></div>
+    </div>
+
+    <!-- 掃碼後查無學員：臨時報到表單 -->
+    <div class="temp-section" id="tempSection">
+      <h3><span class="temp-tag">臨時報到</span><span id="tempTitle"></span></h3>
+      <div class="form-group">
+        <label>姓名 *</label>
+        <input type="text" id="tempName" placeholder="請輸入姓名">
+      </div>
+      <div class="form-group">
+        <label>法名</label>
+        <input type="text" id="tempDharma" placeholder="選填">
+      </div>
+      <div class="form-group">
+        <label>備註</label>
+        <input type="text" id="tempNote" placeholder="選填">
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" style="flex:2; margin-bottom:0;" onclick="confirmTemp()">✅ 確認報到</button>
+        <button class="btn btn-secondary" style="flex:1; margin-bottom:0;" onclick="cancelTemp()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 查詢區 -->
+  <div class="card">
+    <h2>🔍 查詢報到狀態</h2>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="searchInput" placeholder="輸入學員編號或姓名" style="flex:1">
+      <button class="btn btn-primary" style="width:auto; padding:10px 16px; margin-bottom:0;" onclick="doSearch()">查詢</button>
+    </div>
+    <div class="search-result" id="searchResult"></div>
+  </div>
+
+</div>
+
+<script>
+  // ============================================================
+  // 【設定】Apps Script 部署網址
+  // 若網址有變更，只需修改此處即可
+  // ============================================================
+  var API_URL = 'https://script.google.com/macros/s/AKfycbyV6phSljPMSTA3yLLg9y0FoPTUaxy6pF1Sdpsk9fweHt1qTGbiahrUVij8m73EKJQDCA/exec';
+
+  // ============================================================
+  // 核心 API 呼叫函數（取代 google.script.run）
+  // 所有與後端的溝通都透過此函數
+  // ============================================================
+  function callApi(action, params) {
+    var url = new URL(API_URL);
+    url.searchParams.set('action', action);
+    if (params) {
+      Object.keys(params).forEach(function(key) {
+        var val = params[key];
+        if (val !== undefined && val !== null && val !== '') {
+          url.searchParams.set(key, val);
+        }
+      });
+    }
+    return fetch(url.toString())
+      .then(function(res) {
+        if (!res.ok) throw new Error('網路錯誤：' + res.status);
+        return res.json();
+      });
+  }
+
+  // ============================================================
+  // 全域變數
+  // ============================================================
+  var currentEvent = '', currentOperator = '', pendingScanId = '';
+  var scanMode = 'scanner', scanTimer = null;
+  var cameraStream = null, codeReader = null, isCameraOn = false;
+  var lastScannedCode = '', lastScannedTime = 0;
+
+  // ============================================================
+  // 初始化：頁面載入後取得法會清單
+  // ============================================================
+  window.onload = function() { loadEventList(); };
+
+  function loadEventList() {
+    callApi('getEventNames')
+      .then(function(result) {
+        var sel = document.getElementById('eventSelect');
+        sel.innerHTML = '<option value="">-- 請選擇法會 --</option>';
+        if (result.success && result.data.length > 0) {
+          result.data.forEach(function(name) {
+            var opt = document.createElement('option');
+            opt.value = name; opt.textContent = name; sel.appendChild(opt);
+          });
+        } else {
+          sel.innerHTML = '<option value="">（尚無法會，請管理員新增）</option>';
+        }
+      })
+      .catch(function(err) {
+        document.getElementById('eventSelect').innerHTML = '<option value="">（載入失敗，請重新整理）</option>';
+        console.error('載入法會清單失敗：', err);
+      });
+  }
+
+  // ============================================================
+  // 設定流程
+  // ============================================================
+  function startCheckin() {
+    var event = document.getElementById('eventSelect').value;
+    var operator = document.getElementById('operatorName').value.trim();
+    if (!event)    { alert('請選擇法會。'); return; }
+    if (!operator) { alert('請輸入操作者姓名。'); return; }
+    currentEvent = event; currentOperator = operator;
+    document.getElementById('setupCard').style.display = 'none';
+    document.getElementById('checkinSection').classList.remove('section-hidden');
+    document.getElementById('headerSubtitle').textContent = event + '｜' + operator;
+    updateStats();
+    document.getElementById('scanInput').focus();
+  }
+
+  function resetSetup() {
+    stopCamera(); currentEvent = ''; currentOperator = ''; clearResult();
+    document.getElementById('tempSection').style.display = 'none';
+    document.getElementById('setupCard').style.display = 'block';
+    document.getElementById('checkinSection').classList.add('section-hidden');
+    document.getElementById('headerSubtitle').textContent = '中台禪寺';
+  }
+
+  // ============================================================
+  // 掃碼模式切換
+  // ============================================================
+  function switchMode(mode) {
+    scanMode = mode; clearResult();
+    document.getElementById('tempSection').style.display = 'none';
+    if (mode === 'scanner') {
+      document.getElementById('modeScanner').classList.add('active');
+      document.getElementById('modeCamera').classList.remove('active');
+      document.getElementById('scannerMode').classList.remove('section-hidden');
+      document.getElementById('cameraMode').classList.add('section-hidden');
+      stopCamera(); document.getElementById('scanInput').focus();
+    } else {
+      document.getElementById('modeCamera').classList.add('active');
+      document.getElementById('modeScanner').classList.remove('active');
+      document.getElementById('cameraMode').classList.remove('section-hidden');
+      document.getElementById('scannerMode').classList.add('section-hidden');
+    }
+  }
+
+  function onScanInput() {
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(function() {
+      var val = document.getElementById('scanInput').value.trim();
+      if (val) processCheckin(val);
+    }, 300);
+  }
+
+  // ============================================================
+  // 鏡頭控制
+  // ============================================================
+  function toggleCamera() { if (isCameraOn) { stopCamera(); } else { startCamera(); } }
+
+  function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraStatus('❌ 此瀏覽器不支援鏡頭，請改用 Chrome 或 Safari。'); return;
+    }
+    setCameraStatus('⏳ 開啟鏡頭中...');
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    }).then(function(stream) {
+      cameraStream = stream;
+      var video = document.getElementById('cameraVideo');
+      video.srcObject = stream; video.play();
+      document.getElementById('cameraContainer').classList.add('show');
+      document.getElementById('cameraBtn').textContent = '🛑 關閉鏡頭';
+      document.getElementById('cameraBtn').classList.add('active');
+      isCameraOn = true;
+      setCameraStatus('✅ 鏡頭已開啟，請將 QR Code 對準掃描框');
+      startQRScan(video);
+    }).catch(function(err) {
+      var msg;
+      if      (err.name === 'NotAllowedError') msg = '❌ 請允許瀏覽器使用鏡頭權限，然後重試。';
+      else if (err.name === 'NotFoundError')   msg = '❌ 找不到鏡頭裝置。';
+      else                                     msg = '❌ 鏡頭錯誤：' + err.message;
+      setCameraStatus(msg);
+    });
+  }
+
+  function stopCamera() {
+    if (cameraStream) { cameraStream.getTracks().forEach(function(t) { t.stop(); }); cameraStream = null; }
+    if (codeReader)   { try { codeReader.reset(); } catch(e) {} codeReader = null; }
+    var video = document.getElementById('cameraVideo');
+    video.srcObject = null;
+    document.getElementById('cameraContainer').classList.remove('show');
+    document.getElementById('cameraBtn').textContent = '📷 開啟鏡頭';
+    document.getElementById('cameraBtn').classList.remove('active');
+    isCameraOn = false;
+    setCameraStatus('請點選上方按鈕開啟鏡頭');
+  }
+
+  function setCameraStatus(msg) { document.getElementById('cameraStatus').textContent = msg; }
+
+  function startQRScan(video) {
+    try {
+      var hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.QR_CODE,  ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.CODE_39,  ZXing.BarcodeFormat.EAN_13,
+      ]);
+      codeReader = new ZXing.BrowserMultiFormatReader(hints);
+      codeReader.decodeFromVideoElement(video, function(result, err) {
+        if (result) {
+          var code = result.getText(), now = Date.now();
+          if (code === lastScannedCode && now - lastScannedTime < 3000) return;
+          lastScannedCode = code; lastScannedTime = now;
+          setCameraStatus('✅ 掃描成功：' + code);
+          processCheckin(code);
+        }
+      });
+    } catch(e) { setCameraStatus('⚠️ 掃碼功能載入失敗，請切換至掃碼器模式或手動輸入。'); }
+  }
+
+  // ============================================================
+  // 報到流程
+  // ============================================================
+  function processCheckin(scanId) {
+    pendingScanId = scanId; clearResult();
+    document.getElementById('tempSection').style.display = 'none';
+    if (scanMode === 'camera') setCameraStatus('⏳ 處理中：' + scanId);
+    callApi('checkIn', {
+      法會名稱: currentEvent,
+      學員編號: scanId,
+      操作者:   currentOperator
+    })
+    .then(handleCheckinResult)
+    .catch(function(err) { showError('系統錯誤：' + err.message); });
+  }
+
+  function handleCheckinResult(result) {
+    document.getElementById('scanInput').value = '';
+    if (result.success) {
+      var d = result.data;
+      document.getElementById('resName').textContent   = d.姓名 + (result.type === 'temp' ? '（臨時）' : '');
+      document.getElementById('resDharma').textContent = d.法名 ? '法名：' + d.法名 : '';
+      document.getElementById('resTime').textContent   = '報到時間：' + d.報到時間;
+      document.getElementById('resultSuccess').style.display = 'block';
+      if (scanMode === 'camera') setCameraStatus('✅ 報到成功：' + d.姓名 + '，請繼續掃下一位');
+      updateStats();
+    } else if (result.type === 'already') {
+      var d = result.data;
+      document.getElementById('resWarnName').textContent = (d.姓名 || '') + (d.法名 ? '（' + d.法名 + '）' : '');
+      document.getElementById('resWarnMsg').textContent  = '⚠️ 此學員已完成報到';
+      document.getElementById('resWarnTime').textContent = '報到時間：' + d.已報到時間;
+      document.getElementById('resultWarning').style.display = 'block';
+      if (scanMode === 'camera') setCameraStatus('⚠️ 已報到：' + (d.姓名 || '') + '，請繼續掃下一位');
+    } else if (result.type === 'notfound') {
+      document.getElementById('tempTitle').textContent = '查無編號：' + pendingScanId;
+      document.getElementById('tempName').value    = '';
+      document.getElementById('tempDharma').value  = '';
+      document.getElementById('tempNote').value    = '';
+      document.getElementById('tempSection').style.display = 'block';
+      document.getElementById('tempName').focus();
+      if (scanMode === 'camera') {
+        setCameraStatus('❓ 查無學員：' + pendingScanId + '，請填寫臨時報到資料');
+        if (codeReader) { try { codeReader.reset(); } catch(e) {} codeReader = null; }
+      }
+    } else { showError(result.message); }
+
+    if (result.success || result.type === 'already') {
+      setTimeout(function() {
+        document.getElementById('resultSuccess').style.display = 'none';
+        document.getElementById('resultWarning').style.display = 'none';
+        if (scanMode === 'scanner') { document.getElementById('scanInput').focus(); }
+        else if (isCameraOn && !codeReader) {
+          startQRScan(document.getElementById('cameraVideo'));
+          setCameraStatus('✅ 鏡頭已開啟，請將 QR Code 對準掃描框');
+        }
+      }, 3500);
+    }
+  }
+
+  function confirmTemp() {
+    var name   = document.getElementById('tempName').value.trim();
+    var dharma = document.getElementById('tempDharma').value.trim();
+    var note   = document.getElementById('tempNote').value.trim();
+    if (!name) { alert('請輸入姓名。'); return; }
+    callApi('checkIn', {
+      法會名稱: currentEvent,
+      學員編號: pendingScanId,
+      操作者:   currentOperator,
+      備註:     note,
+      臨時姓名: name,
+      臨時法名: dharma
+    })
+    .then(function(result) {
+      document.getElementById('tempSection').style.display = 'none';
+      handleCheckinResult(result);
+      if (scanMode === 'camera' && isCameraOn && !codeReader) {
+        startQRScan(document.getElementById('cameraVideo'));
+        setCameraStatus('✅ 鏡頭已開啟，請將 QR Code 對準掃描框');
+      }
+    })
+    .catch(function(err) { showError('系統錯誤：' + err.message); });
+  }
+
+  function cancelTemp() {
+    document.getElementById('tempSection').style.display = 'none'; clearResult();
+    if (scanMode === 'camera' && isCameraOn && !codeReader) {
+      startQRScan(document.getElementById('cameraVideo'));
+      setCameraStatus('✅ 鏡頭已開啟，請將 QR Code 對準掃描框');
+    } else { document.getElementById('scanInput').focus(); }
+  }
+
+  // ============================================================
+  // 查詢報到狀態
+  // ============================================================
+  function doSearch() {
+    var keyword = document.getElementById('searchInput').value.trim();
+    if (!keyword) { alert('請輸入查詢內容。'); return; }
+    document.getElementById('searchResult').style.display = 'none';
+    callApi('searchCheckin', { 法會名稱: currentEvent, 查詢內容: keyword })
+      .then(function(result) {
+        var el = document.getElementById('searchResult');
+        if (result.success) {
+          var d = result.data;
+          el.innerHTML = '<table>' +
+            '<tr><td>學員編號</td><td>' + (d.學員編號 || '—') + '</td></tr>' +
+            '<tr><td>姓名</td><td><strong>' + d.姓名 + '</strong></td></tr>' +
+            '<tr><td>法名</td><td>' + (d.法名 || '—') + '</td></tr>' +
+            '<tr><td>報到時間</td><td>' + d.報到時間 + '</td></tr>' +
+            '<tr><td>操作者</td><td>' + d.操作者 + '</td></tr>' +
+            (d.備註 ? '<tr><td>備註</td><td>' + d.備註 + '</td></tr>' : '') +
+            '</table>';
+        } else {
+          el.innerHTML = '<p style="color:#c62828;">❌ ' + result.message + '</p>';
+        }
+        el.style.display = 'block';
+      })
+      .catch(function(err) {
+        var el = document.getElementById('searchResult');
+        el.innerHTML = '<p style="color:#c62828;">❌ 查詢失敗：' + err.message + '</p>';
+        el.style.display = 'block';
+      });
+  }
+
+  // ============================================================
+  // 統計更新
+  // ============================================================
+  function updateStats() {
+    if (!currentEvent) return;
+    callApi('getStats', { 法會名稱: currentEvent })
+      .then(function(result) {
+        if (result.success) {
+          document.getElementById('statChecked').textContent = result.data.已報到;
+        }
+      })
+      .catch(function(err) { console.error('統計更新失敗：', err); });
+  }
+
+  // ============================================================
+  // 工具函數
+  // ============================================================
+  function clearResult() {
+    document.getElementById('resultSuccess').style.display = 'none';
+    document.getElementById('resultWarning').style.display = 'none';
+    document.getElementById('resultError').style.display   = 'none';
+  }
+  function showError(msg) {
+    document.getElementById('resErrMsg').textContent = msg;
+    document.getElementById('resultError').style.display = 'block';
+  }
+</script>
+</body>
+</html>
