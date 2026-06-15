@@ -306,12 +306,8 @@
   function startCamera() {
     setCameraStatus('⏳ 開啟鏡頭中...');
     try {
-      var hints = new Map();
-      hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [
-        ZXingBrowser.BarcodeFormat.QR_CODE,  ZXingBrowser.BarcodeFormat.CODE_128,
-        ZXingBrowser.BarcodeFormat.CODE_39,  ZXingBrowser.BarcodeFormat.EAN_13,
-      ]);
-      codeReader = new ZXingBrowser.BrowserMultiFormatReader(hints);
+      // 直接使用預設格式（支援 QR Code 及常見條碼）
+      codeReader = new ZXingBrowser.BrowserMultiFormatReader();
       codeReader.decodeFromConstraints(
         { video: { facingMode: 'environment' } },
         'cameraVideo',
