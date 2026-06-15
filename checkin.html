@@ -351,7 +351,8 @@
         ZXing.BarcodeFormat.CODE_39,  ZXing.BarcodeFormat.EAN_13,
       ]);
       codeReader = new ZXing.BrowserMultiFormatReader(hints);
-      codeReader.decodeFromVideoElement(video, function(result, err) {
+      // 新版 API：使用 decodeFromVideoElementContinuously
+      codeReader.decodeFromVideoElementContinuously(video, function(result, err) {
         if (result) {
           var code = result.getText(), now = Date.now();
           if (code === lastScannedCode && now - lastScannedTime < 3000) return;
@@ -360,7 +361,7 @@
           processCheckin(code);
         }
       });
-    } catch(e) { setCameraStatus('⚠️ 掃碼功能載入失敗，請切換至掃碼器模式或手動輸入。'); }
+    } catch(e) { setCameraStatus('⚠️ 掃碼功能載入失敗：' + e.message); }
   }
 
   // ============================================================
