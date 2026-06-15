@@ -319,9 +319,7 @@
             setCameraStatus('✅ 掃描成功：' + code);
             processCheckin(code);
           }
-          if (err && !(err instanceof ZXingBrowser.NotFoundException)) {
-            console.warn('掃碼錯誤：', err.message);
-          }
+          // 忽略一般掃描錯誤（沒掃到是正常的）
         }
       ).then(function() {
         document.getElementById('cameraContainer').classList.add('show');
