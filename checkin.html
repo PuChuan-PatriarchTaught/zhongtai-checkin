@@ -346,11 +346,11 @@
   function startQRScan(video) {
     try {
       var hints = new Map();
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-        ZXing.BarcodeFormat.QR_CODE,  ZXing.BarcodeFormat.CODE_128,
-        ZXing.BarcodeFormat.CODE_39,  ZXing.BarcodeFormat.EAN_13,
+      hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXingBrowser.BarcodeFormat.QR_CODE,  ZXingBrowser.BarcodeFormat.CODE_128,
+        ZXingBrowser.BarcodeFormat.CODE_39,  ZXingBrowser.BarcodeFormat.EAN_13,
       ]);
-      codeReader = new ZXing.BrowserMultiFormatReader(hints);
+      codeReader = new ZXingBrowser.BrowserMultiFormatReader(hints);
       codeReader.decodeFromVideoElement(video, function(result, err) {
         if (result) {
           var code = result.getText(), now = Date.now();
