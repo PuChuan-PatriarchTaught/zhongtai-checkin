@@ -304,47 +304,7 @@
   function toggleCamera() { if (isCameraOn) { stopCamera(); } else { startCamera(); } }
 
   function startCamera() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setCameraStatus('❌ 此瀏覽器不支援鏡頭，請改用 Chrome 或 Safari。'); return;
-    }
     setCameraStatus('⏳ 開啟鏡頭中...');
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    }).then(function(stream) {
-      cameraStream = stream;
-      var video = document.getElementById('cameraVideo');
-      video.srcObject = stream;
-      // 不呼叫 video.play()，由 ZXing 接管控制
-      document.getElementById('cameraContainer').classList.add('show');
-      document.getElementById('cameraBtn').textContent = '🛑 關閉鏡頭';
-      document.getElementById('cameraBtn').classList.add('active');
-      isCameraOn = true;
-      setCameraStatus('✅ 鏡頭已開啟，請將 QR Code 對準掃描框');
-      startQRScan(video);
-    }).catch(function(err) {
-      var msg;
-      if      (err.name === 'NotAllowedError') msg = '❌ 請允許瀏覽器使用鏡頭權限，然後重試。';
-      else if (err.name === 'NotFoundError')   msg = '❌ 找不到鏡頭裝置。';
-      else                                     msg = '❌ 鏡頭錯誤：' + err.message;
-      setCameraStatus(msg);
-    });
-  }
-
-  function stopCamera() {
-    if (cameraStream) { cameraStream.getTracks().forEach(function(t) { t.stop(); }); cameraStream = null; }
-    if (codeReader)   { try { codeReader.reset(); } catch(e) {} codeReader = null; }
-    var video = document.getElementById('cameraVideo');
-    video.srcObject = null;
-    document.getElementById('cameraContainer').classList.remove('show');
-    document.getElementById('cameraBtn').textContent = '📷 開啟鏡頭';
-    document.getElementById('cameraBtn').classList.remove('active');
-    isCameraOn = false;
-    setCameraStatus('請點選上方按鈕開啟鏡頭');
-  }
-
-  function setCameraStatus(msg) { document.getElementById('cameraStatus').textContent = msg; }
-
-  function startQRScan(video) {
     try {
       var hints = new Map();
       hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
@@ -352,17 +312,56 @@
         ZXing.BarcodeFormat.CODE_39,  ZXing.BarcodeFormat.EAN_13,
       ]);
       codeReader = new ZXing.BrowserMultiFormatReader(hints);
-      // 新版 API：使用 decodeFromVideoElementContinuously
-      codeReader.decodeFromVideoElementContinuously(video, function(result, err) {
-        if (result) {
-          var code = result.getText(), now = Date.now();
-          if (code === lastScannedCode && now - lastScannedTime < 3000) return;
-          lastScannedCode = code; lastScannedTime = now;
-          setCameraStatus('✅ 掃描成功：' + code);
-          processCheckin(code);
+      codeReader.decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
+        'cameraVideo',
+        function(result, err) {
+          if (result) {
+            var code = result.getText(), now = Date.now();
+            if (code === lastScannedCode && now - lastScannedTime < 3000) return;
+            lastScannedCode = code; lastScannedTime = now;
+            setCameraStatus('✅ 掃描成功：' + code);
+            processCheckin(code);
+          }
+          if (err && !(err instanceof ZXing.NotFoundException)) {
+            console.warn('掃碼錯誤：', err.message);
+          }
         }
+      ).then(function() {
+        document.getElementById('cameraContainer').classList.add('show');
+        document.getElementById('cameraBtn').textContent = '🛑 關閉鏡頭';
+        document.getElementById('cameraBtn').classList.add('active');
+        isCameraOn = true;
+        setCameraStatus('✅ 鏡頭已開啟，請將 QR Code 對準掃描框');
+      }).catch(function(err) {
+        var msg;
+        if      (err.name === 'NotAllowedError') msg = '❌ 請允許瀏覽器使用鏡頭權限，然後重試。';
+        else if (err.name === 'NotFoundError')   msg = '❌ 找不到鏡頭裝置。';
+        else                                     msg = '❌ 鏡頭錯誤：' + err.message;
+        setCameraStatus(msg);
+        codeReader = null;
       });
-    } catch(e) { setCameraStatus('⚠️ 掃碼功能載入失敗：' + e.message); }
+    } catch(e) {
+      setCameraStatus('❌ 掃碼初始化失敗：' + e.message);
+    }
+  }
+
+  function stopCamera() {
+    if (codeReader) { try { codeReader.reset(); } catch(e) {} codeReader = null; }
+    if (cameraStream) { cameraStream.getTracks().forEach(function(t) { t.stop(); }); cameraStream = null; }
+    var video = document.getElementById('cameraVideo');
+    video.srcObject = null;
+    document.getElementById('cameraContainer').classList.remove('show');
+    document.getElementById('cameraBtn').textContent = '📷 開啟鏡頭';
+    document.getElementById('cameraBtn').classList.remove('active');
+    isCameraOn = false;
+    setCameraStatus('請點選下方按鈕開啟鏡頭');
+  }
+
+  function setCameraStatus(msg) { document.getElementById('cameraStatus').textContent = msg; }
+
+  function startQRScan(video) {
+    startCamera();
   }
 
   // ============================================================
