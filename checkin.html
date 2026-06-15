@@ -307,11 +307,11 @@
     setCameraStatus('⏳ 開啟鏡頭中...');
     try {
       var hints = new Map();
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-        ZXing.BarcodeFormat.QR_CODE,  ZXing.BarcodeFormat.CODE_128,
-        ZXing.BarcodeFormat.CODE_39,  ZXing.BarcodeFormat.EAN_13,
+      hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXingBrowser.BarcodeFormat.QR_CODE,  ZXingBrowser.BarcodeFormat.CODE_128,
+        ZXingBrowser.BarcodeFormat.CODE_39,  ZXingBrowser.BarcodeFormat.EAN_13,
       ]);
-      codeReader = new ZXing.BrowserMultiFormatReader(hints);
+      codeReader = new ZXingBrowser.BrowserMultiFormatReader(hints);
       codeReader.decodeFromConstraints(
         { video: { facingMode: 'environment' } },
         'cameraVideo',
@@ -323,7 +323,7 @@
             setCameraStatus('✅ 掃描成功：' + code);
             processCheckin(code);
           }
-          if (err && !(err instanceof ZXing.NotFoundException)) {
+          if (err && !(err instanceof ZXingBrowser.NotFoundException)) {
             console.warn('掃碼錯誤：', err.message);
           }
         }
