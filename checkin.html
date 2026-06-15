@@ -313,7 +313,8 @@
     }).then(function(stream) {
       cameraStream = stream;
       var video = document.getElementById('cameraVideo');
-      video.srcObject = stream; video.play();
+      video.srcObject = stream;
+      // 不呼叫 video.play()，由 ZXing 接管控制
       document.getElementById('cameraContainer').classList.add('show');
       document.getElementById('cameraBtn').textContent = '🛑 關閉鏡頭';
       document.getElementById('cameraBtn').classList.add('active');
